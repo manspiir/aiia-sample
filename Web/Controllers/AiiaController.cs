@@ -46,6 +46,7 @@ public class AiiaController : Controller
         if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(consentId))
             return View("GenericViewWithPostMessageOnLoad", new CallbackViewModel { IsError = true });
 
+        // Debug: check whether it gets set during continue of existing session
         // Immediately exchange received code for an access token, since code has a short lifespan
         await _aiiaService.ExchangeCodeForAccessToken(User, code, consentId);
 

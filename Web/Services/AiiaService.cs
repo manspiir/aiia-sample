@@ -13,6 +13,7 @@ using Aiia.Sample.Models;
 using Aiia.Sample.Models.V2;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
+using NodaTime;
 
 namespace Aiia.Sample.AiiaClient;
 
@@ -69,6 +70,7 @@ public class AiiaService : IAiiaService
         
         user.AiiaAccessToken = tokenResponse.AccessToken;
         user.AiiaTokenType = tokenResponse.TokenType;
+        // Debug: refresh token gets set from tokenResponse
         user.AiiaRefreshToken = tokenResponse.RefreshToken;
         user.AiiaAccessTokenExpires = DateTimeOffset.UtcNow.AddSeconds(tokenResponse.ExpiresIn);
         user.AiiaConsentId = consentId;
@@ -294,6 +296,9 @@ public class AiiaService : IAiiaService
 
     private async Task RefreshAccessTokenIfNeeded(ApplicationUser user)
     {
+        // Debug
+        user.AiiaAccessTokenExpires = DateTimeOffset.Now;
+        
         if (user.AiiaAccessTokenExpires > DateTimeOffset.UtcNow.AddMinutes(1))
         {
             // less than 1 minute remaining, so we just continue using the existing access token
@@ -311,9 +316,13 @@ public class AiiaService : IAiiaService
         {
             var result = await _api.AuthenticationRefreshToken(ClientSecret, user.AiiaRefreshToken, GetRedirectUrl());
             
+            // Debug: throw exception
+            throw new AiiaClientException("", HttpStatusCode.BadRequest, "");
+            
             // update the database (and the passed object by reference)
             user.AiiaAccessToken = result.AccessToken;
             user.AiiaRefreshToken = result.RefreshToken;
+            // user.AiiaRefreshTokenExpires = startTime.AddSeconds(result.ExpiresIn);
             user.AiiaTokenType = result.TokenType;
             user.AiiaAccessTokenExpires = startTime.AddSeconds(result.ExpiresIn);
         
@@ -322,9 +331,20 @@ public class AiiaService : IAiiaService
         }
         catch(AiiaClientException ex)
         {
-            if (ex.StatusCode == HttpStatusCode.Unauthorized)
+            if (ex.StatusCode == HttpStatusCode.Unauthorized || ex.StatusCode == HttpStatusCode.BadRequest)
             {
+                // AiiaRefreshToken expiring not supported. Clearing session data.
+                user.AiiaAccessToken = null;
+                user.AiiaRefreshToken = null;
+                _dbContext.Users.Update(user);
+                await _dbContext.SaveChangesAsync();
+                
+                
+
+                // clear session from user in DB
                 // The refresh token expired too.
+                // var expiresIn = (int)Duration.FromHours(1).TotalSeconds;
+                // user.AiiaAccessTokenExpires = startTime.AddSeconds(expiresIn);
                 return;
             }
 

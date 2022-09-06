@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
@@ -59,12 +60,18 @@ public class AccountController : Controller
                 AccountsGroupedByProvider = groupedAccounts,
                 AiiaConnectUrl = _aiiaService.GetAuthUri(user.Email).ToString(),
                 JwtToken = new JwtSecurityTokenHandler().ReadJwtToken(user.AiiaAccessToken),
+                // Debug.. set to null if expired...Needs proper deserialization to check if it is expired
                 RefreshToken = new JwtSecurityTokenHandler().ReadJwtToken(user.AiiaRefreshToken),
                 Providers = providers,
                 ConsentId = user.AiiaConsentId,
                 Email = user.Email,
                 AllAccountsSelected = allAccountsSelected
             };
+            
+            
+            var isRefreshTokenExpired = DateTimeOffset.FromUnixTimeSeconds(model.RefreshToken.Payload.Exp.Value)< DateTime.UtcNow;
+            if (isRefreshTokenExpired)
+                model.RefreshToken = null;
 
             return View(model);
         }

@@ -29,6 +29,9 @@ public class HomeController : Controller
 
     public IActionResult Index()
     {
+        // Debug. check and set all expired tokens to null, like refresh token
+        // Entity framework is used with sql and a statemachine and somehow a session gets created. In this session find the refresh token and set it to null
+        // Maybe it resides inside the AccountsViewModel 
         return View();
     }
 }
